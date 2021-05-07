@@ -1,0 +1,254 @@
+---
+title: "Exercise 4"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(rsample)
+library(dbplyr)
+library(LICORS)  
+library(foreach)
+library(mosaic)
+library(mvtnorm)
+library(NbClust)
+library(cluster)
+library(dendextend)
+library(factoextra)
+```
+
+# Question 1
+
+## Principal Component Analysis (PCA)
+```{r, echo=FALSE}
+#imports data
+wine = read.csv('/Users/franklinstudent/Desktop/GitHub/Exercise 4/wine.csv')
+```
+
+Using principal component analysis (PCA), I was able to use a data set consisting of 11 chemical properties of wine to determine whether the observed wine was categorized as red or white. Figure 1 displays the data collected for the chemical property, fixed acidity, and PC1, and determines which of the points are predicted to be white or red. Additionally, fixed acidity and PC1 have a moderate correlation of approximately -0.415. It should also be noted that PC1 is more or less correlated, depending on the chemical property. Total sulfur dioxide has the highest correlation of 0.848, while density has the lowest correlation of -0.078.
+
+```{r, echo=FALSE}
+#creates a dummy variable for red and creates new column with dummy variable 
+wine = wine %>%
+  mutate(wine_color = ifelse(color == "red", 1, 0))
+
+#creates a matrix, X, of 11 chemical properties, and matrix, Y, of dummy variable
+X = as.matrix(wine[,1:11])
+y = wine[,14]
+```
+
+
+
+```{r, echo=FALSE}
+#running a pca on x 
+pc_wine = prcomp(X, scale=TRUE)
+
+#PCA using the 11 chemical properties 
+winedata = pc_wine$x[,1:11]
+pcr1 = lm(y ~ winedata)
+
+#plots fitted values of PCAs
+#plot1 = plot(fitted(pcr1), y)
+```
+
+
+```{r, echo=FALSE}
+#combines original data set and PCA data
+wine_plus_PCA = cbind(wine, winedata)
+
+#creation of figure 1, 95% confidence of ellipse 
+figure1 = ggplot(wine_plus_PCA, aes(PC1, fixed.acidity, col = color, fill = color)) + 
+  stat_ellipse(geom = "polygon", col= "black", alpha = 0.5)+ 
+  geom_point(shape = 21, col = "black")+ ggtitle("Figure 1")+ 
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+#correlations between PC1 and 11 chemical properties
+chem_cor= cor(wine[,-(12:14)], wine_plus_PCA[,15])
+```
+
+
+```{r, echo=FALSE}
+figure1
+chem_cor
+```
+
+
+
+
+```{r, echo=FALSE}
+figure2 = ggplot(wine_plus_PCA, aes(PC1, wine_color, col = color, fill = color)) + 
+  geom_point(shape = 21, col = "black") + ggtitle("Figure 2")+ 
+  theme(plot.title = element_text(hjust = 0.5))
+
+#correlation between each chemical feature and pc1 and pc2 
+wine_pred = cor(wine_plus_PCA[,14], wine_plus_PCA[,15])
+```
+
+
+```{r, echo=FALSE}
+figure2
+wine_pred
+```
+
+Figure 2 displays PC1 and the determined wine_color, red or white. Overall, PCA did a good job at determining the color of wine, with a correlation of -0.825. 
+
+```{r, echo=FALSE}
+#plot of PC1 and wine quality
+figure3 = ggplot(wine_plus_PCA, aes(PC1, quality, col = color, fill = color)) + 
+  stat_ellipse(geom = "polygon", col= "black", alpha = 0.5)+ 
+  geom_point(shape = 21, col = "black")+ ggtitle("Figure 3")+ 
+  theme(plot.title = element_text(hjust = 0.5))
+
+#correlation between quality and PC1
+quality_cor = cor(wine[,12], wine_plus_PCA[,15])
+```
+
+
+```{r, echo=FALSE}
+figure3
+quality_cor
+```
+
+Figure 3 displays the rated quality of wine and PC1 of either red or white wines. PCA did a poor job at determining the rated quality of wine, with a correlation of -0.076. 
+
+\newpage
+
+## Hierarchical Clustering 
+
+
+```{r, echo=FALSE, include=FALSE}
+#11 chemical properties 
+X1 = wine[,1:11]
+X1 = scale(X1, center = TRUE, scale=TRUE)
+
+#elbow
+k_grid = seq(2, 30, by=1)
+SSE_grid = foreach(k = k_grid, .combine = 'c') %do% {
+  cluster_k = kmeans(X1, k, nstart = 50)
+  cluster_k$tot.withinss
+}
+```
+
+As a separate approach, I decided to use hierarchical clustering. Here, I applied the elbow method and determined that 2 was the optimal number of clusters for the data set. 
+
+```{r, echo=FALSE}
+#SSE plot, finding optimal k
+plot(SSE_grid)
+
+
+#finding distances
+d_wine = dist(X1, method = "euclidean")
+wine.hc = hclust(d = d_wine, method = "ward.D2")
+
+#dendrogram
+plot(wine.hc, labels = FALSE, hang = -1)
+```
+
+Once centering and scaling the data for the 11 chemical properties, I used euclidean distances to measure the distances between the points, and created a resulting variable named, d_wine. Thereafter, the Ward method proved to be the best approach in creating a well-balanced denodrogram, which resulted in the following cluster dendrogram. 
+
+```{r, echo=FALSE}
+#creates dendrogram with colored branches 
+hc.col = color_branches(as.dendrogram(wine.hc), k = 2, labels = FALSE, hang = -1)
+plot(hc.col)
+
+#cuts tree at k = 2, and creates cluster variable
+cluster <- cutree(wine.hc, k = 2)
+
+#distribution of clusters in 2 groups
+table(cluster)
+```
+
+I created a second dendrogram to give an appropriate visualization of the optimal tree cut at k = 2. On the left-hand side, the section in red is cluster 1 and the resulting clustering of the red wines. On the right-hand side, the section in green is cluster 2 and is the resulting clustering of the white wines. Cluster 1 and cluster 2 contain 1,741 and 4,756 wines, respectively, which is very close to the proportionate amounts of red and white wines in the data set. 
+
+
+
+```{r, echo=FALSE}
+#creates a vector of cluster 
+cluster_wine = as.matrix(cluster)
+
+#combines wine data set and cluster vector
+wine_plus_clust = cbind(wine, cluster_wine)
+
+#creates new vector to re-classify cluster vector values as 1 for red or 0 for white
+wine_plus_clust = wine_plus_clust %>%
+  mutate(wine_pred = ifelse(cluster_wine == 1, 1, 0))
+
+
+#correlation for 11 chemical properties
+cor(wine_plus_clust[,14], wine_plus_clust[,16])
+
+
+#correlation for quality
+cor(wine_plus_clust[,14], wine_plus_clust[,12])
+```
+
+Using the resulting clustering to determine the rate of success in verifying whether the wine is red or white based on the 11 chemical properties. The correlation of determined wine colors between the clusters and the data set is 0.927, which is a better outcome than the resulting outcome found using PCA, which had a correlation of -0.825. With a correlation of -0.119, hierarchical clustering also better predicted the rated quality of wines, although only slightly; PCA had a correlation of -0.076. To summarize, hierarchical clustering was the better approach with this particular data set. 
+
+# Question 2 
+
+```{r, echo=FALSE}
+social = read.csv('/Users/franklinstudent/Desktop/GitHub/Exercise 4/social_marketing.csv')
+```
+
+
+```{r, echo=FALSE}
+#creates matrix of numerical values and finds euclidean distances 
+X_social = social[,2:37]
+X_social = scale(X_social, center=TRUE, scale=TRUE)
+distances = dist(X_social, method = "euclidean")
+```
+
+```{r, echo=FALSE, include=FALSE}
+#creates k grid
+k_grid = seq(2, 30, by=1)
+SSE_grid = foreach(k = k_grid, .combine = 'c') %do% {
+  cluster_k = kmeans(X_social, k, nstart = 50)
+  cluster_k$tot.withinss
+}
+```
+
+To best approach this objective, I decided to use hierarchical clustering. I removed the first column of the data set, which contained non-numerical values, and named the resulting X_social. I user the euclidean method to find the distances between the points of ther data set. Thereafter, the Ward method proved to be the most successful in creating a cluster dendrogram. 
+
+
+which is represented by the following SSE plot.  
+
+
+
+
+
+```{r, echo=FALSE}
+#SSE plot
+plot(SSE_grid)
+```
+
+
+```{r, echo=FALSE}
+#hierarchical clustering 
+cluster_social = hclust(distances, method = 'ward.D2')
+plot(cluster_social, labels = FALSE, hang = -1)
+
+hc.social = color_branches(as.dendrogram(cluster_social), k = 9, labels = FALSE)
+plot(hc.social)
+```
+
+
+```{r, echo=FALSE}
+cor_plot2 = ggcorrplot::ggcorrplot(cor(X_social), hc.order = TRUE)
+```
+
+
+```{r, echo=FALSE}
+cor_plot2
+```
+
+
+
+
+
+
+
+
+
+
