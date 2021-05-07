@@ -39,7 +39,7 @@ library(plyr)
 ## Principal Component Analysis (PCA)
 ```{r, echo=FALSE}
 #imports data
-wine = read.csv('/Users/franklinstudent/Desktop/GitHub/Exercise 4/wine.csv')
+wine = read.csv('/Users/franklinstudent/Desktop/GitHub/Exercise4/Exercise 4/wine.csv')
 ```
 
 
@@ -196,7 +196,7 @@ The resulting cluster dendrogram produced is well-balanced. Moreover, the branch
 # Question 2: Market Segmentation
 
 ```{r, echo=FALSE}
-social = read.csv('/Users/franklinstudent/Desktop/GitHub/Exercise 4/social_marketing.csv')
+social = read.csv('/Users/franklinstudent/Desktop/GitHub/Exercise4/Exercise 4/social_marketing.csv')
 ```
 
 ## I. Overview 
@@ -269,7 +269,7 @@ After using hierarchical clustering to analyze the data set, there are several r
 # Question 3: Association Rules for Grocery Purchases
 
 ```{r, echo=FALSE}
-groceries = read.transactions('/Users/franklinstudent/Desktop/GitHub/Exercise 4/groceries.txt', sep = ",", format = "basket")
+groceries = read.transactions('/Users/franklinstudent/Desktop/GitHub/Exercise4/Exercise 4/groceries.txt', sep = ",", format = "basket")
 
 
 #plot of top 20 items purchased
@@ -326,11 +326,11 @@ readerPlain = function(fname){
   readPlain(elem=list(content=readLines(fname)), id=fname, language='en') }
 
 ## Rolling two directories together into a single training corpus
-train_dirs = Sys.glob('/Users/franklinstudent/Desktop/GitHub/Exercise 4/C50/C50train/*')
+train_dirs = Sys.glob('/Users/franklinstudent/Desktop/GitHub/Exercise4/Exercise 4/C50/C50train/*')
 file_list = NULL
 labels_train = NULL
 for(author in train_dirs) {
-  author_name = substring(author, first=63)
+  author_name = substring(author, first=73)
   files_to_add = Sys.glob(paste0(author, '/*.txt'))
   file_list = append(file_list, files_to_add)
   labels_train = append(labels_train, rep(author_name, length(files_to_add)))
@@ -361,11 +361,11 @@ corpus_train = corpus_train %>%
 
 ```{r, echo=FALSE, include=FALSE}
 ## Same operations with the testing corpus
-test_dirs = Sys.glob('/Users/franklinstudent/Desktop/GitHub/Exercise 4/C50/C50test/*')
+test_dirs = Sys.glob('/Users/franklinstudent/Desktop/GitHub/Exercise4/Exercise 4/C50/C50test/*')
 file_list = NULL
 labels_test = NULL
 for(author in test_dirs) {
-  author_name = substring(author, first=62)
+  author_name = substring(author, first=72)
   files_to_add = Sys.glob(paste0(author, '/*.txt'))
   file_list = append(file_list, files_to_add)
   labels_test = append(labels_test, rep(author_name, length(files_to_add)))
@@ -403,18 +403,22 @@ DTM_test = as.data.frame(DTM_test)
 ```{r, echo=FALSE, include=FALSE}
 DTM_train<-cbind(DTM_train,labels_train)
 DTM_test<-cbind(DTM_test,labels_test)
+
 naive_bayes = naiveBayes(as.factor(labels_train)~., data=DTM_train)
 
 pred = predict(naive_bayes, DTM_test[,-ncol(DTM_test)])
 
 results = data.frame(table(DTM_test$labels_test, pred))
 
-results = as.matrix(table(DTM_test$labels_test, pred))
+total_correct = sum(DTM_test$labels_test == pred)
+
+# Model Accuracy
+percent_accuracy = confusionMatrix(as.factor(DTM_test$labels_test), pred)$overall['Accuracy']
 ```
 
 ```{r, echo=FALSE}
-sum(DTM_test$labels_test == pred)
-
-# Model Accuracy
-confusionMatrix(as.factor(DTM_test$labels_test), pred)$overall['Accuracy']
+total_correct
+percent_accuracy
 ```
+
+Using the data to train and test the model, I then used naive bayes to create a predictive model so as to correctly classify the authors. Using this predictive model, I was able to correctly predict 992 authors, an accuracy rate of 39.86%.
