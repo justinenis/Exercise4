@@ -386,14 +386,14 @@ corpus_test = corpus_test %>%
 ```
 
 ```{r, echo=FALSE}
-DTM_train = DocumentTermMatrix(corpus_train, control = list(weighting = weightTfIdf, bounds = list(global = c(5, Inf))))
+DTM_train = DocumentTermMatrix(corpus_train, control = list(weighting = weightTfIdf, bounds = list(global = c(1, Inf))))
 DTM_train = removeSparseTerms(DTM_train, 0.95)
 DTM_train
 DTM_train = as.matrix(DTM_train)
 DTM_train = as.data.frame(DTM_train)
 
 
-DTM_test = DocumentTermMatrix(corpus_test, control=list( weighting = weightTfIdf, bounds = list(global = c(5, Inf))))
+DTM_test = DocumentTermMatrix(corpus_test, control=list( weighting = weightTfIdf, bounds = list(global = c(1, Inf))))
 DTM_test = removeSparseTerms(DTM_test, 0.95)
 DTM_test
 DTM_test = as.matrix(DTM_test)
