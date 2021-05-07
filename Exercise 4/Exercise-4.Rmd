@@ -393,7 +393,7 @@ DTM_train = as.matrix(DTM_train)
 DTM_train = as.data.frame(DTM_train)
 
 
-DTM_test = DocumentTermMatrix(corpus_test, control=list( weighting = weightTfIdf, bounds = list(global = c(1, Inf))))
+DTM_test = DocumentTermMatrix(corpus_test, control=list(weighting = weightTfIdf, bounds = list(global = c(1, Inf))))
 DTM_test = removeSparseTerms(DTM_test, 0.95)
 DTM_test
 DTM_test = as.matrix(DTM_test)
@@ -404,15 +404,20 @@ DTM_test = as.data.frame(DTM_test)
 DTM_train<-cbind(DTM_train,labels_train)
 DTM_test<-cbind(DTM_test,labels_test)
 
+#fitting the naive bayes model
 naive_bayes = naiveBayes(as.factor(labels_train)~., data=DTM_train)
 
+#prediction
 pred = predict(naive_bayes, DTM_test[,-ncol(DTM_test)])
 
+#create new data frame of results
 results = data.frame(table(DTM_test$labels_test, pred))
 ```
 
 ```{r, echo=FALSE}
+#total number of correct authors
 sum(DTM_test$labels_test == pred)
 ```
+Using the training data of a series of 50 authors and their provided articles, I first trained the data by separating the author names into a list. Next, I used to provided readerPlain function so as to train a corpus, titled corpus_train. This corpus successfully lower all the text, removed numbers, removed punctuation, stripped the white space, and removed words that were classified as "SMART". Once this process was completed, I then used the remaining data to create a matrix titled, DTM_train. I then did the same for the testing data, titled, DTM_test. 
 
-Using the data to train and test the model, I then used naive bayes to create a predictive model so as to correctly classify the authors. Using this predictive model, I was able to correctly predict 992 authors, an accuracy rate of 39.86%.
+At this point, I removed the sparse words at a rate of 0.95 for each matrix. Using the DTM_train and DTM_test matrices, I then used naive bayes to create a predictive model so as to correctly classify the authors. Using this predictive model, I was able to correctly predict 1020 authors, an accuracy rate of 40.8%.

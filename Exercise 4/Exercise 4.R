@@ -456,17 +456,17 @@ readerPlain = function(fname){
   readPlain(elem=list(content=readLines(fname)), id=fname, language='en') }
 
 ## Rolling two directories together into a single training corpus
-train_dirs = Sys.glob('../C50/C50train/*')
+train_dirs = Sys.glob('/Users/franklinstudent/Desktop/GitHub/Exercise4/Exercise 4/C50/C50train/*')
 file_list = NULL
 labels_train = NULL
 for(author in train_dirs) {
-  author_name = substring(author, first=17)
+  author_name = substring(author, first=73)
   files_to_add = Sys.glob(paste0(author, '/*.txt'))
   file_list = append(file_list, files_to_add)
   labels_train = append(labels_train, rep(author_name, length(files_to_add)))
 }
 all_txt = lapply(file_list, readerPlain)
-mynames = file_list %>%
+mynames = as.character(file_list) %>%
   { strsplit(., '/', fixed=TRUE) } %>%
   { lapply(., tail, n=2) } %>%
   { lapply(., paste0, collapse = '') } %>%
@@ -491,11 +491,11 @@ corpus_train = corpus_train %>%
 
 
 ## Same operations with the testing corpus
-test_dirs = Sys.glob('../C50/C50test/*')
+test_dirs = Sys.glob('/Users/franklinstudent/Desktop/GitHub/Exercise4/Exercise 4/C50/C50test/*')
 file_list = NULL
 labels_test = NULL
 for(author in test_dirs) {
-  author_name = substring(author, first=16)
+  author_name = substring(author, first=72)
   files_to_add = Sys.glob(paste0(author, '/*.txt'))
   file_list = append(file_list, files_to_add)
   labels_test = append(labels_test, rep(author_name, length(files_to_add)))
@@ -558,17 +558,18 @@ DTM_test = as.data.frame(DTM_test)
 
 
 
-DTM_train = cbind(DTM_train,labels_train)
-DTM_test = cbind(DTM_test,labels_test)
-naive_bayes = naiveBayes(as.factor(labels_train) ~ DTM_test, data = DTM_train)
+DTM_train<-cbind(DTM_train,labels_train)
+DTM_test<-cbind(DTM_test,labels_test)
+
+naive_bayes = naiveBayes(as.factor(labels_train)~., data=DTM_train)
+
 pred = predict(naive_bayes, DTM_test[,-ncol(DTM_test)])
 
 results = data.frame(table(DTM_test$labels_test, pred))
 
-results = as.matrix(table(DTM_test$labels_test, pred))
 sum(DTM_test$labels_test == pred)
 
-naive
+1020/2500
 # Model Accuracy
 confusionMatrix(as.factor(DTM_test$labels_test), pred)$overall['Accuracy']
 
