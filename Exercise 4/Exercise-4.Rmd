@@ -409,9 +409,10 @@ naive_bayes = naiveBayes(as.factor(labels_train)~., data=DTM_train)
 pred = predict(naive_bayes, DTM_test[,-ncol(DTM_test)])
 
 results = data.frame(table(DTM_test$labels_test, pred))
+```
 
+```{r, echo=FALSE}
 sum(DTM_test$labels_test == pred)
-
 ```
 
 Using the data to train and test the model, I then used naive bayes to create a predictive model so as to correctly classify the authors. Using this predictive model, I was able to correctly predict 992 authors, an accuracy rate of 39.86%.
