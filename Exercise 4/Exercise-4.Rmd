@@ -410,15 +410,8 @@ pred = predict(naive_bayes, DTM_test[,-ncol(DTM_test)])
 
 results = data.frame(table(DTM_test$labels_test, pred))
 
-total_correct = sum(DTM_test$labels_test == pred)
+sum(DTM_test$labels_test == pred)
 
-# Model Accuracy
-percent_accuracy = confusionMatrix(as.factor(DTM_test$labels_test), pred)$overall['Accuracy']
-```
-
-```{r, echo=FALSE}
-total_correct
-percent_accuracy
 ```
 
 Using the data to train and test the model, I then used naive bayes to create a predictive model so as to correctly classify the authors. Using this predictive model, I was able to correctly predict 992 authors, an accuracy rate of 39.86%.
