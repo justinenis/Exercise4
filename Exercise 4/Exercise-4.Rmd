@@ -1,0 +1,420 @@
+---
+title: "Exercise 4"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(rsample)
+library(dbplyr)
+library(LICORS)  
+library(foreach)
+library(mosaic)
+library(mvtnorm)
+library(NbClust)
+library(cluster)
+library(dendextend)
+library(factoextra)
+library(tm)
+library(gamlr)
+library(SnowballC)
+library(slam)
+library(proxy)
+library(igraph)
+library(arules)
+library(arulesViz)
+library(pander)
+library(e1071)
+library(naivebayes)
+
+
+library(magrittr)
+library(doParallel)
+library(plyr)
+```
+
+# Question 1: Clustering and PCA
+
+## Principal Component Analysis (PCA)
+```{r, echo=FALSE}
+#imports data
+wine = read.csv('/Users/franklinstudent/Desktop/GitHub/Exercise 4/wine.csv')
+```
+
+
+```{r, echo=FALSE}
+#creates a dummy variable for red and creates new column with dummy variable 
+wine = wine %>%
+  mutate(wine_color = ifelse(color == "red", 1, 0))
+
+#creates a matrix, X, of 11 chemical properties, and matrix, Y, of dummy variable
+X = as.matrix(wine[,1:11])
+y = wine[,14]
+```
+
+
+
+```{r, echo=FALSE}
+#running a pca on x 
+pc_wine = prcomp(X, scale=TRUE)
+
+#PCA using the 11 chemical properties 
+winedata = pc_wine$x[,1:11]
+pcr1 = lm(y ~ winedata)
+
+#plots fitted values of PCAs
+#plot1 = plot(fitted(pcr1), y)
+```
+
+
+```{r, echo=FALSE}
+#combines original data set and PCA data
+wine_plus_PCA = cbind(wine, winedata)
+
+#creation of figure 1, 95% confidence of ellipse 
+figure1 = ggplot(wine_plus_PCA, aes(PC1, fixed.acidity, col = color, fill = color)) + 
+  stat_ellipse(geom = "polygon", col= "black", alpha = 0.5)+ 
+  geom_point(shape = 21, col = "black")+ ggtitle("Figure 1")+ 
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+#correlations between PC1 and 11 chemical properties
+chem_cor= cor(wine[,-(12:14)], wine_plus_PCA[,15])
+```
+
+
+```{r, echo=FALSE}
+figure1
+chem_cor
+```
+
+Using principal component analysis (PCA), I was able to use a data set consisting of 11 chemical properties of wine to determine whether the observed wine was categorized as red or white. Figure 1 displays the data collected for the chemical property, fixed acidity, and PC1, and determines which of the points are predicted to be white or red. Additionally, fixed acidity and PC1 have a moderate correlation of approximately -0.415. It should also be noted that PC1 is more or less correlated, depending on the chemical property. Total sulfur dioxide has the highest correlation of 0.848, while density has the lowest correlation of -0.078.
+
+
+```{r, echo=FALSE}
+figure2 = ggplot(wine_plus_PCA, aes(PC1, wine_color, col = color, fill = color)) + 
+  geom_point(shape = 21, col = "black") + ggtitle("Figure 2")+ 
+  theme(plot.title = element_text(hjust = 0.5))
+
+#correlation between each chemical feature and pc1 and pc2 
+wine_pred = cor(wine_plus_PCA[,14], wine_plus_PCA[,15])
+```
+
+
+```{r, echo=FALSE}
+figure2
+wine_pred
+```
+
+Figure 2 displays PC1 and the determined wine_color, red or white. Overall, PCA did a good job at determining the color of wine, with a correlation of -0.825. 
+
+```{r, echo=FALSE}
+#plot of PC1 and wine quality
+figure3 = ggplot(wine_plus_PCA, aes(PC1, quality, col = color, fill = color)) + 
+  stat_ellipse(geom = "polygon", col= "black", alpha = 0.5)+ 
+  geom_point(shape = 21, col = "black")+ ggtitle("Figure 3")+ 
+  theme(plot.title = element_text(hjust = 0.5))
+
+#correlation between quality and PC1
+quality_cor = cor(wine[,12], wine_plus_PCA[,15])
+```
+
+
+```{r, echo=FALSE}
+figure3
+quality_cor
+```
+
+Figure 3 displays the rated quality of wine and PC1 of either red or white wines. PCA did a poor job at determining the rated quality of wine, with a correlation of -0.076. 
+
+\newpage
+
+## Hierarchial Clustering 
+
+
+```{r, echo=FALSE, include=FALSE}
+#11 chemical properties 
+X1 = wine[,1:11]
+X1 = scale(X1, center = TRUE, scale=TRUE)
+
+#elbow
+k_grid = seq(2, 30, by=1)
+SSE_grid = foreach(k = k_grid, .combine = 'c') %do% {
+  cluster_k = kmeans(X1, k, nstart = 50)
+  cluster_k$tot.withinss
+}
+```
+
+As a separate approach, I decided to create a cluster dendrogram by using hierarchical clustering. First, the euclidean method was used to find the distances between each point. Next, using the found distances and the Ward method, a cluster dendrogram was produced. The Ward method was used to create the dendrogram because it produced a dendrogram that was much more well-balance relative to other used methods. Lastly, I applied the elbow method and determined that k = 2 was the optimal number of clusters for the data set, which can be observed on the following graph.
+
+```{r, echo=FALSE}
+#SSE plot, finding optimal k
+plot(SSE_grid)
+
+
+#finding distances
+d_wine = dist(X1, method = "euclidean")
+wine.hc = hclust(d = d_wine, method = "ward.D2")
+
+#dendrogram
+hc.col = color_branches(as.dendrogram(wine.hc), k = 2, labels = FALSE)
+plot(hc.col)
+```
+
+
+```{r, echo=FALSE}
+#cuts tree at k = 2, and creates cluster variable
+cluster <- cutree(wine.hc, k = 2)
+
+#distribution of clusters in 2 groups
+table(cluster)
+
+#creates a vector of cluster 
+cluster_wine = as.matrix(cluster)
+
+#combines wine data set and cluster vector
+wine_plus_clust = cbind(wine, cluster_wine)
+
+#creates new vector to re-classify cluster vector values as 1 for red or 0 for white
+wine_plus_clust = wine_plus_clust %>%
+  mutate(wine_pred = ifelse(cluster_wine == 1, 1, 0))
+
+
+#correlation for 11 chemical properties
+cor(wine_plus_clust[,14], wine_plus_clust[,16])
+
+
+#correlation for quality
+cor(wine_plus_clust[,14], wine_plus_clust[,12])
+```
+
+The resulting cluster dendrogram produced is well-balanced. Moreover, the branches were given to separate colors corresponding to the resulting clustering so as to give a better visualization. Cluster 1 and cluster 2 conatin 1471 and 4757 wines, respectively. This aligns well with the actual amounts of red and white wines in the data set; 1599 red wines and 4898 white wines. And indeed, the correlation of the clusters and the data set is 0.927, proving that hierarchical clustering is more effective method in distinguishing between red and white wines. Conversely, hierarchical clustering wasn't very successful in predicting wine quality, a correlation of -0.119, but was also more successful in distinguishing wine quality relative to PCA. 
+
+\newpage
+
+# Question 2: Market Segmentation
+
+```{r, echo=FALSE}
+social = read.csv('/Users/franklinstudent/Desktop/GitHub/Exercise 4/social_marketing.csv')
+```
+
+## I. Overview 
+A sample of Twitter followers and corresponding tweets were taken for the company, NutrientH20. The tweets were grouped into a data set of 36 categories. The objective is to analyze the data set and determine a possible correlation among twitter followers and their subsequent tweets, and use the results for better marketing techniques in promoting products made by NutrientH20. 
+
+
+## II. Data and Model
+
+To accomplish this objective, I decided to create a cluster dendrogram by using hierarchical clustering. First, the euclidean method was used to find the distances between each point. Next, using the found distances and the Ward method, a cluster dendrogram was produced. The Ward method was used to create the dendrogram because it produced a dendrogram that was much more well-balance relative to other used methods. 
+
+```{r, echo=FALSE}
+#creates matrix of numerical values and finds euclidean distances 
+X_social = social[,2:37]
+X_social = scale(X_social, center=TRUE, scale=TRUE)
+distances = dist(X_social, method = "euclidean")
+
+#hierarchical clustering 
+cluster_social = hclust(distances, method = 'ward.D2')
+
+#color branches dendrogram
+hc.social = color_branches(as.dendrogram(cluster_social), k = 9, labels = FALSE)
+
+```
+
+## III. Results
+
+```{r, echo=FALSE, include=FALSE}
+
+#creates k grid
+k_grid = seq(2, 30, by=1)
+SSE_grid = foreach(k = k_grid, .combine = 'c') %do% {
+  cluster_k = kmeans(X_social, k, nstart = 50)
+  cluster_k$tot.withinss
+}
+```
+
+
+```{r, echo=FALSE}
+#plot cluster dendrogram
+plot(cluster_social, labels = FALSE, hang = -1)
+```
+
+The resulting cluster dendrogram is well-balanced. The next step is to find the optimal k to cut the tree. To accomplish this, I used to elbow method in the following grapg and observed k = 9 would be optimal.
+
+
+```{r, echo=FALSE}
+#SSE plot
+plot(SSE_grid)
+
+#plot color branches
+plot(hc.social)
+```
+The next cluster dendrogram is a replica of the first, but with the colored branches corresponding to the created cluster of k = 9 so as to create a better visualization of the process.
+
+```{r, echo=FALSE}
+cor_plot2 = ggcorrplot::ggcorrplot(cor(X_social), hc.order = TRUE)
+```
+
+```{r, echo=FALSE}
+cor_plot2
+```
+The final plot displays the correlation of the listed categories of tweets. 
+
+## IV. Conclusion
+
+After using hierarchical clustering to analyze the data set, there are several resulting market segments. The largest market segment lies in the cluster of Twitter followers that tweet topics that fall within the sports_fandom category. These followers also tend to tweet topics that also fall within the parenting, religion, food, school, and family category. These tweets could be scrutinized as to be more family-oriented in nature, and NutrientH20 could benefit through an increase in sales if it marketed itself as a family-oriented company. There was also a smaller and more obvious clustering in which contained tweets categorized as outdoors, health_nutrition, and personal_fitness. Moreover, spam and adult tweets resulted in the same cluster, which shouldn't be too surprising since both are most likely the result of Twitter bots. 
+
+\newpage 
+
+# Question 3: Association Rules for Grocery Purchases
+
+```{r, echo=FALSE}
+groceries = read.transactions('/Users/franklinstudent/Desktop/GitHub/Exercise 4/groceries.txt', sep = ",", format = "basket")
+
+
+#plot of top 20 items purchased
+itemFrequencyPlot(groceries, topN = 20, main = "\nTop 20 items purchased\n", col = "lightblue")
+
+
+groceries_rules = apriori(groceries, 
+                          parameter=list(support=.003, confidence=.5, minlen = 2))
+
+
+#confidence = .65, lift = 3
+plot(groceries_rules)
+```
+
+Upon observation of this scatter plot, I noticed a break point along the confidence axis at 0.65, and chose this as an appropriate level to further research the data. Moreover, lift > 3, was also an important metric drawn from this plot. Next, using lift > 3 and confidence > 0.65, I constructed the following table. At this criteria, the most frequent rhs items are "other vegetables" and "whole milk". The lhs items tend to be the most common household items, such as root vegetables, cheese, brown bread, butter, and yogurt. 
+
+
+```{r, echo=FALSE}
+inspect(subset(groceries_rules, lift > 3 & confidence > 0.65))
+
+rules_soda_1 = apriori(groceries, parameter = list(support = 0.001,
+                                                   confidence = 0.15,
+                                                   minlen = 2,
+                                                   target = 'rules'),
+                       appearance = list(default = 'rhs', lhs = 'other vegetables'),
+                       control = list(verbose = FALSE))
+
+plot(rules_soda_1, method = "graph", interactive = FALSE, shading = NA)
+
+```
+
+Lastly, I created a graph that provides the likelihood of a consumer purchasing other items, given that the consumer purchased "other vegetables". The most likely of which is whole milk, and shouldn't be too surprising since whole milk was the most common purchased item in the data set. Furthermore, consumers that purchased other vegetables, are least likely to purchase soda, indicting these particular consumers may be more health conscious than most. 
+
+
+
+\newpage
+
+# Question 4: Author Attribution
+
+
+```{r, echo=FALSE, include=FALSE}
+
+readerPlain = function(fname){
+  readPlain(elem=list(content=readLines(fname)), id=fname, language='en') }
+
+```
+
+
+```{r, echo=FALSE, include=FALSE}
+# Remember to source in the "reader" wrapper function
+# it's stored as a Github gist at:
+# https://gist.github.com/jgscott/28d9d1287a0c3c1477e2113f6758d5ff
+readerPlain = function(fname){
+  readPlain(elem=list(content=readLines(fname)), id=fname, language='en') }
+
+## Rolling two directories together into a single training corpus
+train_dirs = Sys.glob('/Users/franklinstudent/Desktop/GitHub/Exercise 4/C50/C50train/*')
+file_list = NULL
+labels_train = NULL
+for(author in train_dirs) {
+  author_name = substring(author, first=63)
+  files_to_add = Sys.glob(paste0(author, '/*.txt'))
+  file_list = append(file_list, files_to_add)
+  labels_train = append(labels_train, rep(author_name, length(files_to_add)))
+}
+all_txt = lapply(file_list, readerPlain)
+mynames = as.character(file_list) %>%
+  { strsplit(., '/', fixed=TRUE) } %>%
+  { lapply(., tail, n=2) } %>%
+  { lapply(., paste0, collapse = '') } %>%
+  unlist
+names(all_txt) = mynames
+names(all_txt) = sub('.txt', '', names(all_txt))
+
+
+
+corpus_train = Corpus(VectorSource(all_txt))
+
+corpus_train = corpus_train %>% 
+  tm_map(., content_transformer(tolower)) %>% 
+  tm_map(., content_transformer(removeNumbers)) %>% 
+  tm_map(., content_transformer(removeNumbers)) %>% 
+  tm_map(., content_transformer(removePunctuation)) %>%
+  tm_map(., content_transformer(stripWhitespace)) %>%
+  tm_map(., content_transformer(removeWords), stopwords("SMART"))
+```
+
+
+
+```{r, echo=FALSE, include=FALSE}
+## Same operations with the testing corpus
+test_dirs = Sys.glob('/Users/franklinstudent/Desktop/GitHub/Exercise 4/C50/C50test/*')
+file_list = NULL
+labels_test = NULL
+for(author in test_dirs) {
+  author_name = substring(author, first=62)
+  files_to_add = Sys.glob(paste0(author, '/*.txt'))
+  file_list = append(file_list, files_to_add)
+  labels_test = append(labels_test, rep(author_name, length(files_to_add)))
+}
+all_txt = lapply(file_list, readerPlain) 
+names(all_txt) = file_list
+names(all_txt) = sub('.txt', '', names(all_txt))
+
+
+corpus_test = Corpus(VectorSource(all_txt)) 
+
+corpus_test = corpus_test %>% 
+  tm_map(., content_transformer(tolower)) %>% 
+  tm_map(., content_transformer(removeNumbers)) %>% 
+  tm_map(., content_transformer(removePunctuation)) %>%
+  tm_map(., content_transformer(stripWhitespace)) %>%
+  tm_map(., content_transformer(removeWords), stopwords("SMART")) 
+```
+
+```{r, echo=FALSE}
+DTM_train = DocumentTermMatrix(corpus_train, control = list(weighting = weightTfIdf, bounds = list(global = c(5, Inf))))
+DTM_train = removeSparseTerms(DTM_train, 0.95)
+DTM_train
+DTM_train = as.matrix(DTM_train)
+DTM_train = as.data.frame(DTM_train)
+
+
+DTM_test = DocumentTermMatrix(corpus_test, control=list( weighting = weightTfIdf, bounds = list(global = c(5, Inf))))
+DTM_test = removeSparseTerms(DTM_test, 0.95)
+DTM_test
+DTM_test = as.matrix(DTM_test)
+DTM_test = as.data.frame(DTM_test)
+```
+
+```{r, echo=FALSE, include=FALSE}
+DTM_train<-cbind(DTM_train,labels_train)
+DTM_test<-cbind(DTM_test,labels_test)
+naive_bayes = naiveBayes(as.factor(labels_train)~., data=DTM_train)
+
+pred = predict(naive_bayes, DTM_test[,-ncol(DTM_test)])
+
+results = data.frame(table(DTM_test$labels_test, pred))
+
+results = as.matrix(table(DTM_test$labels_test, pred))
+```
+
+```{r, echo=FALSE}
+sum(DTM_test$labels_test == pred)
+
+# Model Accuracy
+confusionMatrix(as.factor(DTM_test$labels_test), pred)$overall['Accuracy']
+```
